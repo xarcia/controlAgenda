@@ -45,7 +45,10 @@ export function AgendaReunionTab({
   registro, sessions, conflicts, conflictsBySession, fechas, salas, usuariosSap, rolesLiberados, canEdit, verRolesSap,
   onFieldChange, onDeleteAttendee, onSalaChange, onOpenSession,
 }: Props) {
-  const [fecha, setFecha] = useState<string>(fechas[0] || '');
+  /* Por defecto NO se fija ningún día: se arranca en "Todas las fechas" para que
+     los demás filtros (tema, capacitador, usuario) busquen en todo el calendario
+     y no queden atados al primer día. */
+  const [fecha, setFecha] = useState<string>('');
   const [onlyConflicts, setOnlyConflicts] = useState(false);
   const [modulo, setModulo] = useState('');
   const [localidad, setLocalidad] = useState('');
