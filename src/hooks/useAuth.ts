@@ -77,6 +77,8 @@ export function useAuth() {
   /* El perfil "visualizador 2" es igual al de solo lectura, pero sin las columnas
      de ID de usuario SAP ni de liberación de rol: es una vista de agenda pura. */
   const verRolesSap = role !== 'viewer2';
+  /* El perfil "visualizador 2" es exclusivamente de Gantt: no ve Agenda Reunión. */
+  const verAgenda = role !== 'viewer2';
 
-  return { role, resolving, needsGate, canEdit, verRolesSap, submitCode, changeRole, logout, supabaseConfigured: !!supabaseClient };
+  return { role, resolving, needsGate, canEdit, verRolesSap, verAgenda, submitCode, changeRole, logout, supabaseConfigured: !!supabaseClient };
 }
