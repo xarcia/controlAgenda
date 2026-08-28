@@ -11,13 +11,14 @@ interface Props {
   onChangeRole: () => void;
   onLogout: () => void;
   onOpenRoles: () => void;
+  onOpenReporte: () => void;
   onRefresh: () => void;
   refreshing: boolean;
 }
 
 export function TopBar({
   activeTab, onTabChange, alertsCount, role, supabaseConfigured, saving, lastSaveError,
-  canEdit, verAgenda, onChangeRole, onLogout, onOpenRoles, onRefresh, refreshing,
+  canEdit, verAgenda, onChangeRole, onLogout, onOpenRoles, onOpenReporte, onRefresh, refreshing,
 }: Props) {
   const syncLabel = !supabaseConfigured
     ? 'Guardado en este navegador'
@@ -54,6 +55,7 @@ export function TopBar({
               </button>
             )}
             <button className="btn-refresh" onClick={onOpenRoles} title="Ver capacitación vs. roles SAP liberados">🎓 Roles SAP</button>
+            <button className="btn-refresh" onClick={onOpenReporte} title="Reporte de avance de liberación de roles (descargable)">📊 Reporte</button>
             <span className={`save-state ${lastSaveError ? 'sync-error' : ''} ${saving ? 'saving' : ''}`}>{syncLabel}</span>
             {supabaseConfigured && (
               <button className={`btn-refresh ${refreshing ? 'spinning' : ''}`} onClick={onRefresh} disabled={refreshing} title="Traer ahora mismo lo que hay guardado en Supabase">
