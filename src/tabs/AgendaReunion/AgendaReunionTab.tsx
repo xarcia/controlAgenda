@@ -45,10 +45,9 @@ export function AgendaReunionTab({
   registro, sessions, conflicts, conflictsBySession, fechas, salas, usuariosSap, rolesLiberados, canEdit, verRolesSap,
   onFieldChange, onDeleteAttendee, onSalaChange, onOpenSession,
 }: Props) {
-  /* Por defecto NO se fija ningún día: se arranca en "Todas las fechas" para que
-     los demás filtros (tema, capacitador, usuario) busquen en todo el calendario
-     y no queden atados al primer día. */
-  const [fecha, setFecha] = useState<string>('');
+  // Agenda Reunión arranca en el primer día del calendario (comportamiento de
+  // siempre). "Todas las fechas" sigue disponible en el desplegable.
+  const [fecha, setFecha] = useState<string>(fechas[0] || '');
   const [onlyConflicts, setOnlyConflicts] = useState(false);
   const [modulo, setModulo] = useState('');
   const [localidad, setLocalidad] = useState('');
