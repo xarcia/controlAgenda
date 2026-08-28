@@ -8,9 +8,7 @@ interface Props {
   lastSaveError: string | null;
   canEdit: boolean;
   verAgenda: boolean;
-  onChangeRole: () => void;
   onLogout: () => void;
-  onOpenRoles: () => void;
   onOpenReporte: () => void;
   onRefresh: () => void;
   refreshing: boolean;
@@ -18,7 +16,7 @@ interface Props {
 
 export function TopBar({
   activeTab, onTabChange, alertsCount, role, supabaseConfigured, saving, lastSaveError,
-  canEdit, verAgenda, onChangeRole, onLogout, onOpenRoles, onOpenReporte, onRefresh, refreshing,
+  canEdit, verAgenda, onLogout, onOpenReporte, onRefresh, refreshing,
 }: Props) {
   const syncLabel = !supabaseConfigured
     ? 'Guardado en este navegador'
@@ -49,12 +47,6 @@ export function TopBar({
         {canEdit && (
           <>
             <span className="alerts-pill"><span className="dot" />{alertsCount} alertas</span>
-            {role && (
-              <button className={`role-badge role-${role}`} onClick={onChangeRole} title="Cambiar de perfil">
-                ✎ Editor
-              </button>
-            )}
-            <button className="btn-refresh" onClick={onOpenRoles} title="Ver capacitación vs. roles SAP liberados">🎓 Roles SAP</button>
             <button className="btn-refresh" onClick={onOpenReporte} title="Reporte de avance de liberación de roles (descargable)">📊 Reporte</button>
             <span className={`save-state ${lastSaveError ? 'sync-error' : ''} ${saving ? 'saving' : ''}`}>{syncLabel}</span>
             {supabaseConfigured && (
