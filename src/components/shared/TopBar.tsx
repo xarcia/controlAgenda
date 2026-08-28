@@ -7,6 +7,7 @@ interface Props {
   saving: boolean;
   lastSaveError: string | null;
   canEdit: boolean;
+  verAgenda: boolean;
   onChangeRole: () => void;
   onLogout: () => void;
   onOpenRoles: () => void;
@@ -16,7 +17,7 @@ interface Props {
 
 export function TopBar({
   activeTab, onTabChange, alertsCount, role, supabaseConfigured, saving, lastSaveError,
-  canEdit, onChangeRole, onLogout, onOpenRoles, onRefresh, refreshing,
+  canEdit, verAgenda, onChangeRole, onLogout, onOpenRoles, onRefresh, refreshing,
 }: Props) {
   const syncLabel = !supabaseConfigured
     ? 'Guardado en este navegador'
@@ -34,7 +35,9 @@ export function TopBar({
       </div>
 
       <nav className="tabs" role="tablist">
-        <button className={`tab-btn ${activeTab === 'agenda' ? 'active' : ''}`} onClick={() => onTabChange('agenda')}>Agenda Reunión</button>
+        {verAgenda && (
+          <button className={`tab-btn ${activeTab === 'agenda' ? 'active' : ''}`} onClick={() => onTabChange('agenda')}>Agenda Reunión</button>
+        )}
         <button className={`tab-btn ${activeTab === 'gantt' ? 'active' : ''}`} onClick={() => onTabChange('gantt')}>Gantt</button>
       </nav>
 
