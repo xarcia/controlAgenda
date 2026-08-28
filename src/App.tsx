@@ -72,6 +72,15 @@ function AppInner() {
     if (!window.location.hash) window.history.replaceState(null, '', '#/agenda');
   }, []);
 
+  /* El visualizador 2 solo tiene Gantt: si intenta llegar a la agenda (por enlace
+     antiguo o escribiendo la dirección), se le redirige. */
+  useEffect(() => {
+    if (!auth.verAgenda && activeTab === 'agenda') {
+      window.history.replaceState(null, '', '#/gantt');
+      setActiveTabState('gantt');
+    }
+  }, [auth.verAgenda, activeTab]);
+
   useEffect(() => {
     if (auth.resolving) return;
     const hash = window.location.hash.toLowerCase();
@@ -84,11 +93,12 @@ function AppInner() {
         window.history.replaceState(null, '', '#/login');
       }
     } else if (enLogin) {
-      const destino = rutaPrevia.current.startsWith('#/login') ? '#/agenda' : rutaPrevia.current;
+      let destino = rutaPrevia.current.startsWith('#/login') ? '#/agenda' : rutaPrevia.current;
+      if (!auth.verAgenda) destino = '#/gantt';
       window.history.replaceState(null, '', destino);
       setActiveTabState(destino.toLowerCase().includes('gantt') ? 'gantt' : 'agenda');
     }
-  }, [auth.needsGate, auth.resolving]);
+  }, [auth.needsGate, auth.resolving, auth.verAgenda]);
   const [modalSessionId, setModalSessionId] = useState<string | 'new' | null>(null);
   const [showRoles, setShowRoles] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -272,7 +282,7 @@ function AppInner() {
         activeTab={activeTab} onTabChange={setActiveTab}
         alertsCount={data.conflicts.length} role={auth.role} supabaseConfigured={auth.supabaseConfigured}
         saving={data.saving} lastSaveError={data.lastSaveError}
-        canEdit={auth.canEdit}
+        canEdit={auth.canEdit} verAgenda={auth.verAgenda}
         onChangeRole={auth.changeRole} onLogout={auth.logout} onOpenRoles={() => setShowRoles(true)}
         onRefresh={handleRefresh} refreshing={refreshing}
       />
