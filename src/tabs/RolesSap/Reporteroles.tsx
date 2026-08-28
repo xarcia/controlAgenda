@@ -38,8 +38,16 @@ export function ReporteRoles({ registro, usuariosSap, rolesLiberados, onClose }:
         .map(r => normName(r.id_usuario))
     );
 
-    // El universo es DEV110: todos los usuarios que se mandaron a crear
-    const filas: Fila[] = usuariosSap.map(u => {
+    /* El universo es DEV110: los usuarios que se mandaron a crear.
+       Ojo: la Matriz DEV110 trae el mismo ID repetido en varias filas (73 casos),
+       normalmente por tener más de un rol asignado. Aquí se agrupa por ID para
+       que cada usuario aparezca UNA sola vez y los totales no salgan inflados. */
+    const porId = new Map<string, UsuarioSap>();
+    for (const u of usuariosSap) {
+      if (u.id_usuario && !porId.has(u.id_usuario)) porId.set(u.id_usuario, u);
+    }
+
+    const filas: Fila[] = [...porId.values()].map(u => {
       const dias = [...(diasPorNombre.get(normName(u.nombre_completo)) || [])].sort();
       return {
         idUsuario: u.id_usuario,
@@ -78,57 +86,93 @@ export function ReporteRoles({ registro, usuariosSap, rolesLiberados, onClose }:
     return f.dias.map(d => `${ddmm(d)}: ${f.liberado ? 'SI' : 'NO'}`).join(' · ');
   }
 
-  /* Descarga en formato Excel. Se genera una tabla HTML con estilos y se guarda
-     con extensión .xls: Excel la abre respetando colores y anchos, y no hace
-     falta añadir ninguna librería al proyecto. */
-  function descargar() {
-    const esc = (v: string) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const filasHtml = visibles.map(f => `
-      <tr>
-        <td>${esc(f.idUsuario)}</td>
-        <td>${esc(f.nombre)}</td>
-        <td style="mso-number-format:'dd/mm/yyyy'">${f.fechaInicio ? `${f.fechaInicio.slice(8,10)}/${f.fechaInicio.slice(5,7)}/${f.fechaInicio.slice(0,4)}` : ''}</td>
-        <td style="text-align:center">${f.dias.length}</td>
-        <td>${esc(detalle(f))}</td>
-        <td style="background:${f.liberado ? '#C6EFCE' : '#FFC7CE'};color:${f.liberado ? '#0B6623' : '#9C0006'};font-weight:bold">
-          ${f.liberado ? 'LIBERADO' : 'PENDIENTE ROLES'}
-        </td>
-      </tr>`).join('');
+  /* Descarga en .xlsx REAL (no un HTML disfrazado): se usa ExcelJS, que permite
+     colores de relleno, negritas, anchos de columna, filtros y panel congelado.
+     Así el archivo abre en Excel sin ningún aviso y con el mismo aspecto que el
+     reporte original. */
+  const [generando, setGenerando] = useState(false);
 
-    const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8">
-      <style>
-        td,th{border:1px solid #9AA;padding:4px 8px;font-family:Calibri,Arial;font-size:11pt}
-        th{background:#1F3864;color:#fff;font-weight:bold}
-        .kpi{font-weight:bold;color:#fff;text-align:center;font-size:14pt}
-      </style></head><body>
-      <table>
-        <tr>
-          <td class="kpi" style="background:#1F3864">TOTAL USUARIOS</td>
-          <td class="kpi" style="background:#375623">LIBERADOS</td>
-          <td class="kpi" style="background:#C00000">PENDIENTES</td>
-          <td class="kpi" style="background:#BF8F00">INCONSISTENTES</td>
-          <td class="kpi" style="background:#2E75B6">% AVANCE</td>
-        </tr>
-        <tr>
-          <td class="kpi" style="background:#1F3864">${total}</td>
-          <td class="kpi" style="background:#375623">${nLiberados}</td>
-          <td class="kpi" style="background:#C00000">${pendientes}</td>
-          <td class="kpi" style="background:#BF8F00">${inconsistentes}</td>
-          <td class="kpi" style="background:#2E75B6">${avance}%</td>
-        </tr>
-      </table>
-      <br/>
-      <table>
-        <tr><th>ID USUARIO</th><th>NOMBRE</th><th>FECHA DE INICIO</th><th>DÍAS PROGRAMADOS</th><th>DETALLE POR DÍA</th><th>ESTADO ROLES</th></tr>
-        ${filasHtml}
-      </table></body></html>`;
+  async function descargar() {
+    setGenerando(true);
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'Centro de Control ADELCA';
+      wb.created = new Date();
+      const ws = wb.addWorksheet('Avance roles SAP', {
+        views: [{ state: 'frozen', ySplit: 4 }],   // deja fijo el encabezado
+      });
 
-    const hoy = new Date().toISOString().slice(0, 10);
-    const url = URL.createObjectURL(new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' }));
-    const a = document.createElement('a');
-    a.href = url; a.download = `reporte_roles_sap_${hoy}.xls`;
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
+      const relleno = (argb: string) => ({ type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb } });
+      const centrado = { vertical: 'middle' as const, horizontal: 'center' as const, wrapText: true };
+
+      // ---- Fila 1-2: tablero de indicadores ----
+      const titulos = ['TOTAL USUARIOS', 'LIBERADOS', 'PENDIENTES', 'INCONSISTENTES', '% AVANCE'];
+      const valores: (string | number)[] = [total, nLiberados, pendientes, inconsistentes, `${avance}%`];
+      const colores = ['FF1F3864', 'FF375623', 'FFC00000', 'FFBF8F00', 'FF2E75B6'];
+
+      const filaT = ws.getRow(1), filaV = ws.getRow(2);
+      titulos.forEach((t, k) => {
+        const c1 = filaT.getCell(k + 1), c2 = filaV.getCell(k + 1);
+        c1.value = t; c2.value = valores[k];
+        [c1, c2].forEach(cc => { cc.fill = relleno(colores[k]); cc.alignment = centrado; cc.font = { color: { argb: 'FFFFFFFF' }, bold: true }; });
+        c1.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 11 };
+        c2.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 18 };
+      });
+      filaT.height = 20; filaV.height = 30;
+
+      // ---- Fila 4: encabezados de la tabla ----
+      const cabeceras = ['ID USUARIO', 'NOMBRE', 'FECHA DE INICIO', 'DÍAS PROGRAMADOS', 'DETALLE POR DÍA', 'ESTADO ROLES'];
+      const filaH = ws.getRow(4);
+      cabeceras.forEach((h, k) => {
+        const cc = filaH.getCell(k + 1);
+        cc.value = h;
+        cc.fill = relleno('FF1F3864');
+        cc.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+        cc.alignment = centrado;
+        cc.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      });
+      filaH.height = 22;
+
+      // ---- Datos ----
+      visibles.forEach((f, idx) => {
+        const fila = ws.getRow(5 + idx);
+        fila.getCell(1).value = f.idUsuario;
+        fila.getCell(2).value = f.nombre;
+        fila.getCell(3).value = f.fechaInicio ? new Date(f.fechaInicio + 'T00:00:00') : '';
+        fila.getCell(3).numFmt = 'dd/mm/yyyy';
+        fila.getCell(4).value = f.dias.length;
+        fila.getCell(5).value = detalle(f);
+        const est = fila.getCell(6);
+        est.value = f.liberado ? 'LIBERADO' : 'PENDIENTE ROLES';
+        est.fill = relleno(f.liberado ? 'FFC6EFCE' : 'FFFFC7CE');
+        est.font = { color: { argb: f.liberado ? 'FF006100' : 'FF9C0006' }, bold: true };
+        est.alignment = { horizontal: 'center' };
+        fila.getCell(3).alignment = { horizontal: 'center' };
+        fila.getCell(4).alignment = { horizontal: 'center' };
+        for (let k = 1; k <= 6; k++) {
+          fila.getCell(k).border = { top: { style: 'hair' }, left: { style: 'hair' }, bottom: { style: 'hair' }, right: { style: 'hair' } };
+        }
+      });
+
+      ws.columns = [
+        { width: 16 }, { width: 42 }, { width: 16 }, { width: 20 }, { width: 60 }, { width: 20 },
+      ];
+      // Filtros en la cabecera, como en el reporte original
+      ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4 + visibles.length, column: 6 } };
+
+      const buf = await wb.xlsx.writeBuffer();
+      const hoy = new Date().toISOString().slice(0, 10);
+      const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = `reporte_roles_sap_${hoy}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('No se pudo generar el Excel:', e);
+      alert('No se pudo generar el archivo. Revisa la consola (F12) para el detalle.');
+    }
+    setGenerando(false);
   }
 
   return (
@@ -156,7 +200,9 @@ export function ReporteRoles({ registro, usuariosSap, rolesLiberados, onClose }:
             <button className={`gt-btn ${filtroEstado === 'pendiente' ? 'active' : ''}`} onClick={() => setFiltroEstado('pendiente')}>Pendientes</button>
           </div>
           <span className="rep-count">{visibles.length} de {total}</span>
-          <button className="btn btn-amber btn-sm" onClick={descargar}>⭳ Descargar Excel</button>
+          <button className="btn btn-amber rep-descargar" onClick={descargar} disabled={generando}>
+            {generando ? 'Generando…' : '⭳ Descargar Excel'}
+          </button>
         </div>
 
         <div className="rep-tabla-wrap">
