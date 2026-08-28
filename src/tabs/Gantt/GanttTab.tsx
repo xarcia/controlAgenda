@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Sesion, ConflictItem } from '../../types/domain';
 import { uniqueSorted, uniqueSortedOpciones } from '../../lib/conflictEngine';
 import { fmtFechaLarga } from '../../lib/format';
@@ -35,8 +35,40 @@ function toYmd(d: Date): string {
 }
 
 export function GanttTab({ sessions, conflicts, fechas, onOpenSession }: Props) {
-  const [view, setView] = useState<'dia' | 'semana'>('dia');
-  const [fecha, setFecha] = useState(fechas[0] || '');
+  /* El Gantt guarda su estado EN LA DIRECCIÓN (#/gantt, #/gantt/FECHA,
+     #/gantt/FECHA/semana). Así, al entrar a un día desde las tarjetas y pulsar
+     "atrás", el navegador devuelve al resumen de tarjetas en vez de salirse de la
+     app — que era lo que pasaba cuando el estado vivía solo en memoria. */
+  const leerRuta = (): { fecha: string; view: 'dia' | 'semana' } => {
+    const partes = window.location.hash.replace(/^#\/?/, '').split('/');  // ['gantt', fecha?, view?]
+    const f = partes[1] && /^\d{4}-\d{2}-\d{2}$/.test(partes[1]) ? partes[1] : '';
+    const v = partes[2] === 'semana' ? 'semana' : 'dia';
+    return { fecha: f, view: v };
+  };
+  const [ruta, setRuta] = useState(leerRuta);
+  const fecha = ruta.fecha;
+  const view = ruta.view;
+
+  const irA = useCallback((f: string, v: 'dia' | 'semana', reemplazar = false) => {
+    const destino = f ? `#/gantt/${f}${v === 'semana' ? '/semana' : ''}` : '#/gantt';
+    if (window.location.hash !== destino) {
+      if (reemplazar) window.history.replaceState(null, '', destino);
+      else window.history.pushState(null, '', destino);
+    }
+    setRuta({ fecha: f, view: v });
+  }, []);
+
+  const setFecha = useCallback((f: string) => irA(f, f ? view : 'dia'), [irA, view]);
+  const setView = useCallback((v: 'dia' | 'semana') => irA(fecha, v, true), [irA, fecha]);
+
+  // Atrás/adelante del navegador
+  useEffect(() => {
+    const onPop = () => setRuta(leerRuta());
+    window.addEventListener('popstate', onPop);
+    window.addEventListener('hashchange', onPop);
+    return () => { window.removeEventListener('popstate', onPop); window.removeEventListener('hashchange', onPop); };
+  }, []);
+
   const [lane, setLane] = useState<'sala' | 'capacitador'>('sala');
   const [semanaOffset, setSemanaOffset] = useState(0);
 
@@ -133,7 +165,7 @@ export function GanttTab({ sessions, conflicts, fechas, onOpenSession }: Props) 
               <>
                 <div className="view-toggle" role="group">
                   <button className={`gt-btn ${view === 'dia' ? 'active' : ''}`} onClick={() => setView('dia')}>Vista día</button>
-                  <button className={`gt-btn ${view === 'semana' ? 'active' : ''}`} onClick={() => { setView('semana'); setSemanaOffset(0); }}>Vista semana</button>
+                  <button className={`gt-btn ${view === 'semana' ? 'active' : ''}`} onClick={() => { setSemanaOffset(0); setView('semana'); }}>Vista semana</button>
                 </div>
                 <div className="view-toggle" role="group">
                   <button className={`gl-btn ${lane === 'sala' ? 'active' : ''}`} onClick={() => setLane('sala')}>Por sala</button>
@@ -158,12 +190,12 @@ export function GanttTab({ sessions, conflicts, fechas, onOpenSession }: Props) 
       {todasLasFechas
         ? <DateOverview sessions={shown} conflicts={conflicts} moduloColor={moduloColor}
             hint="Elige una fecha para ver su Gantt por día o por semana"
-            onPickFecha={f => { setFecha(f); setView('dia'); }} />
+            onPickFecha={f => irA(f, 'dia')} />
         : view === 'dia'
         ? <GanttDia shown={shown} scope={scope} lane={lane} conflicts={conflicts} fecha={fechaActual} onOpenSession={onOpenSession} />
         : <GanttSemana shown={shown} dias={diasSemana} lane={lane} conflicts={conflicts}
             offset={semanaOffset} setOffset={setSemanaOffset}
-            onPickFecha={f => { setFecha(f); setView('dia'); setSemanaOffset(0); }} onOpenSession={onOpenSession} />}
+            onPickFecha={f => { setSemanaOffset(0); irA(f, 'dia'); }} onOpenSession={onOpenSession} />}
     </section>
   );
 }
