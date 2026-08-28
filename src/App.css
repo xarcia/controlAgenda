@@ -943,3 +943,11 @@ html, body, #app { max-width: 100%; overflow-x: hidden; }
 .rep-tabla thead th { position: sticky; top: 0; z-index: 2; }
 .rep-detalle { font-size: 11px; color: var(--text-muted); }
 @media (max-width: 480px) { .rep-kpis { grid-template-columns: repeat(2, 1fr); } }
+
+/* El botón de descarga siempre visible y destacado */
+.rep-descargar { white-space: nowrap; flex-shrink: 0; font-weight: 600; }
+.rep-tools { position: sticky; top: 0; background: var(--panel); z-index: 3; padding-bottom: 4px; }
+@media (max-width: 720px) {
+  .rep-tools { flex-direction: column; align-items: stretch; }
+  .rep-descargar { width: 100%; }
+}
