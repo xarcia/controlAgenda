@@ -7,7 +7,6 @@ import { AuthGate } from './components/shared/AuthGate';
 import { AgendaReunionTab } from './tabs/AgendaReunion/AgendaReunionTab';
 import { SessionModal } from './tabs/AgendaReunion/SessionModal';
 import { GanttTab } from './tabs/Gantt/GanttTab';
-import { RolesSapPanel } from './tabs/RolesSap/RolesSapPanel';
 import { ReporteRoles } from './tabs/RolesSap/ReporteRoles';
 import { supabaseClient } from './lib/supabaseClient';
 import { deleteParticipantesRemote, describeSupabaseError, nextIdsFromDb } from './lib/persistence';
@@ -101,7 +100,6 @@ function AppInner() {
     }
   }, [auth.needsGate, auth.resolving, auth.verAgenda]);
   const [modalSessionId, setModalSessionId] = useState<string | 'new' | null>(null);
-  const [showRoles, setShowRoles] = useState(false);
   const [showReporte, setShowReporte] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [usuariosSap, setUsuariosSap] = useState<UsuarioSap[]>(USUARIOS_SAP_SEED);
@@ -285,7 +283,7 @@ function AppInner() {
         alertsCount={data.conflicts.length} role={auth.role} supabaseConfigured={auth.supabaseConfigured}
         saving={data.saving} lastSaveError={data.lastSaveError}
         canEdit={auth.canEdit} verAgenda={auth.verAgenda}
-        onChangeRole={auth.changeRole} onLogout={auth.logout} onOpenRoles={() => setShowRoles(true)} onOpenReporte={() => setShowReporte(true)}
+        onLogout={auth.logout} onOpenReporte={() => setShowReporte(true)}
         onRefresh={handleRefresh} refreshing={refreshing}
       />
       {data.lastSaveError && (
@@ -319,9 +317,6 @@ function AppInner() {
           onClose={() => setModalSessionId(null)}
           onSave={handleSaveSession} onDeleteSession={handleDeleteSession}
         />
-      )}
-      {showRoles && (
-        <RolesSapPanel registro={data.registro} usuariosSap={usuariosSap} rolesLiberados={rolesLiberados} onClose={() => setShowRoles(false)} />
       )}
       {showReporte && (
         <ReporteRoles registro={data.registro} usuariosSap={usuariosSap} rolesLiberados={rolesLiberados} onClose={() => setShowReporte(false)} />
